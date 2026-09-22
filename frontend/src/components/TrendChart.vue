@@ -7,7 +7,8 @@ import * as echarts from 'echarts'
 import { useLogStore } from '../store/log'
 const store = useLogStore(); const chart = ref<HTMLDivElement>(); let inst: echarts.ECharts|null=null
 function update() {
-  if (!inst||!store.result) return
+  if (!inst) return
+  if (!store.result) { inst.clear(); return }
   const ws = store.result.windows
   inst.setOption({
     backgroundColor:'transparent',grid:{left:40,right:15,top:10,bottom:25},
@@ -17,7 +18,7 @@ function update() {
       type:'bar',data:ws.map(w=>w.count),itemStyle:{color:'#38bdf8'},
       markLine:{data:[{type:'average',name:'avg'}],lineStyle:{color:'#f97316',type:'dashed'},label:{color:'#f97316'}}
     }],animation:false
-  })
+  }, true)
 }
 onMounted(()=>{if(chart.value){inst=echarts.init(chart.value);update()}})
 watch(()=>store.result,update)

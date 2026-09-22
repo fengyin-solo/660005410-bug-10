@@ -6,9 +6,13 @@
         <el-select v-model="store.logType" size="small" style="width:140px">
           <el-option v-for="t in ['nginx','apache','json_app','custom']" :key="t" :label="t" :value="t"/>
         </el-select>
+        <el-tag v-if="store.result" size="small" type="success" style="margin-left:-4px">
+          当前结果：{{ store.result.type }}（{{ store.result.totalLogs }} 条 / {{ store.result.windows.length }} 窗口）
+        </el-tag>
+        <el-tag v-else size="small" type="info">未生成</el-tag>
         <el-input v-model="store.searchQuery" placeholder="搜索关键词..." size="small" style="width:200px" clearable/>
-        <el-button size="small" @click="store.generate()" :loading="store.loading">🔍 生成日志</el-button>
-        <el-button size="small" type="warning" @click="store.detect()" :disabled="!store.result">⚠ 检测异常</el-button>
+        <el-button size="small" @click="generate" :loading="store.loading">🔍 生成日志</el-button>
+        <el-button size="small" type="warning" @click="detect" :loading="store.loading" :disabled="!store.result">⚠ 检测异常</el-button>
       </div>
     </header>
     <div class="main-grid">
@@ -34,7 +38,26 @@ import AlertPanel from './components/AlertPanel.vue'
 import TrendChart from './components/TrendChart.vue'
 import HeatmapChart from './components/HeatmapChart.vue'
 import { useLogStore } from './store/log'
+import { ElMessage } from 'element-plus'
 const store = useLogStore()
+
+async function generate() {
+  try {
+    await store.generate()
+    ElMessage.success(`已生成 ${store.logType} 日志`)
+  } catch {
+    ElMessage.error('日志生成失败，请重试')
+  }
+}
+
+async function detect() {
+  try {
+    await store.detect()
+    ElMessage.success('异常检测完成')
+  } catch {
+    ElMessage.error('检测失败，请重试')
+  }
+}
 </script>
 
 <style>

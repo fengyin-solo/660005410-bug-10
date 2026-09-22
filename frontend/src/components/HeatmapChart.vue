@@ -7,8 +7,15 @@ import * as echarts from 'echarts'
 import { useLogStore } from '../store/log'
 const store = useLogStore(); const chart = ref<HTMLDivElement>(); let inst: echarts.ECharts|null=null
 function update() {
-  if (!inst||!store.result) return
-  const ws = store.result.windows; const levels = ['INFO','WARN','ERROR','DEBUG']
+  if (!inst) return
+  if (!store.result) { inst.clear(); return }
+  const ws = store.result.windows
+  // 级别名以后端归一化后的快照数据为准，兼容 apache/custom 的小写/notice 等级别
+  const order = ['ERROR','WARN','INFO','DEBUG']
+  const present = new Set<string>()
+  ws.forEach(w => Object.keys(w.levels).forEach(lv => present.add(lv)))
+  const levels = [...order.filter(lv => present.has(lv)),
+    ...[...present].filter(lv => !order.includes(lv))]
   const data: [number,number,number][] = []
   ws.forEach((w,i) => { levels.forEach((lv,j) => { data.push([i,j,w.levels[lv]||0]) }) })
   inst.setOption({
@@ -17,7 +24,7 @@ function update() {
     yAxis:{type:'category',data:levels,axisLabel:{color:'#94a3b8',fontSize:9}},
     visualMap:{min:0,max:Math.max(...data.map(d=>d[2]),1),inRange:{color:['#1e293b','#fef08a','#ef4444']},calculable:false,show:false},
     series:[{type:'heatmap',data,label:{show:true,fontSize:8,color:'#94a3b8'}}],animation:false
-  })
+  }, true)
 }
 onMounted(()=>{if(chart.value){inst=echarts.init(chart.value);update()}})
 watch(()=>store.result,update)

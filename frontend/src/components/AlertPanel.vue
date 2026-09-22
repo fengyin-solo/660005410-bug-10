@@ -4,6 +4,7 @@
     <div v-if="!alerts.length" class="empty">暂无告警</div>
     <div v-for="a in alerts.slice(0,8)" :key="a.id" class="alert-row" :class="a.severity">
       <span class="a-sev" :class="a.severity">{{ a.severity.toUpperCase() }}</span>
+      <span v-if="a.windowIndex !== undefined" class="a-win">W{{ a.windowIndex }}</span>
       <span class="a-msg">{{ a.message }}</span>
     </div>
   </div>
@@ -25,6 +26,7 @@ const alerts = computed(() => store.result?.alerts || [])
 .alert-row.critical{background:#991b1b55}
 .alert-row.medium{background:#78350f33}
 .a-sev{font-weight:700;min-width:50px;font-size:10px;padding:1px 4px;border-radius:2px}
+.a-win{color:#7dd3fc;font-size:10px;min-width:28px;font-weight:700}
 .a-sev.critical{color:#fca5a5;background:#991b1b}
 .a-sev.high{color:#f87171;background:#7f1d1d}
 .a-sev.medium{color:#fbbf24;background:#78350f}

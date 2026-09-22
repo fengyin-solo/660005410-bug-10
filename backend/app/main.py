@@ -73,6 +73,19 @@ class DetectRequest(BaseModel):
     logs: list
     rules: list = []
     query: str = ""
+    type: str = "nginx"
+
+
+CANON_LEVELS = {
+    "info": "INFO", "information": "INFO", "notice": "INFO",
+    "warn": "WARN", "warning": "WARN",
+    "error": "ERROR", "err": "ERROR",
+    "debug": "DEBUG", "trace": "DEBUG",
+}
+
+
+def canonical_level(level: str) -> str:
+    return CANON_LEVELS.get(str(level).lower(), str(level).upper())
 
 
 @app.post("/api/generate")
@@ -89,15 +102,15 @@ def generate_logs(req: GenerateRequest):
             "message": entry["message"],
             "raw": f"[{entry['timestamp']}] [{entry['level']}] [{entry['source']}] {entry['message']}"
         })
-    return analyze_logs(logs, [], "")
+    return analyze_logs(logs, [], "", req.type)
 
 
 @app.post("/api/detect")
 def detect_anomalies(req: DetectRequest):
-    return analyze_logs(req.logs, req.rules, req.query)
+    return analyze_logs(req.logs, req.rules, req.query, req.type)
 
 
-def analyze_logs(logs_data, rules, query):
+def analyze_logs(logs_data, rules, query, log_type="nginx"):
     logs = logs_data
     n = len(logs)
 
@@ -106,7 +119,7 @@ def analyze_logs(logs_data, rules, query):
     windows = []
     for i in range(0, n, window_size):
         chunk = logs[i:i + window_size]
-        levels = Counter(l["level"] for l in chunk)
+        levels = Counter(canonical_level(l["level"]) for l in chunk)
         sources = Counter(l["source"] for l in chunk)
         windows.append({
             "start": i, "end": min(i + window_size, n),
@@ -143,17 +156,21 @@ def analyze_logs(logs_data, rules, query):
     alerts = []
     for i, rule in enumerate(rules):
         rule = rule if isinstance(rule, dict) else {}
-        for w in windows:
-            if rule.get("type") == "level" and w["levels"].get("ERROR", 0) > rule.get("threshold", 5):
+        for wi, w in enumerate(windows):
+            error_count = w["levels"].get("ERROR", 0)
+            threshold = rule.get("threshold", 5)
+            if rule.get("type") == "level" and error_count > threshold:
                 alerts.append({
                     "id": len(alerts) + 1, "ruleName": rule.get("name", "高频ERROR"),
-                    "severity": "high", "message": f"窗口{w['start']}内ERROR日志{w['levels']['ERROR']}条超过阈值{rule.get('threshold',5)}",
+                    "severity": "high", "windowIndex": wi,
+                    "message": f"窗口W{wi}内ERROR日志{error_count}条超过阈值{threshold}",
                     "timestamp": time.strftime("%H:%M:%S")
                 })
             if rule.get("type") == "count" and w["count"] > rule.get("threshold", 200):
                 alerts.append({
                     "id": len(alerts) + 1, "ruleName": rule.get("name", "异常流量"),
-                    "severity": "medium", "message": f"窗口{w['start']}日志量{w['count']}超过阈值",
+                    "severity": "medium", "windowIndex": wi,
+                    "message": f"窗口W{wi}日志量{w['count']}超过阈值",
                     "timestamp": time.strftime("%H:%M:%S")
                 })
 
@@ -169,19 +186,21 @@ def analyze_logs(logs_data, rules, query):
         logs = [l for _, l in sorted(scored, key=lambda x: x[0], reverse=True)]
 
     # Add non-rule alerts for high anomaly windows  
-    for a in anomalies:
-        if a["isAnomaly"]:
-            alerts.append({
-                "id": len(alerts) + 1, "ruleName": "统计异常检测",
-                "severity": "critical" if a["sigmaScore"] > 4 else "high",
-                "message": f"窗口{a['windowIndex']}: 3-sigma={a['sigmaScore']}, IQR={a['iqrScore']}",
-                "timestamp": a["timestamp"]
-            })
+        for a in anomalies:
+            if a["isAnomaly"]:
+                alerts.append({
+                    "id": len(alerts) + 1, "ruleName": "统计异常检测",
+                    "severity": "critical" if a["sigmaScore"] > 4 else "high",
+                    "windowIndex": a["windowIndex"],
+                    "message": f"窗口W{a['windowIndex']}: 3-sigma={a['sigmaScore']}, IQR={a['iqrScore']}",
+                    "timestamp": a["timestamp"]
+                })
 
     return {
-        "logs": logs[:200],
+        "type": log_type,
+        "logs": logs,
         "windows": windows,
         "anomalies": anomalies,
-        "alerts": alerts[:20],
+        "alerts": alerts,
         "totalLogs": n
     }
