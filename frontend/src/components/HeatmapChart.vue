@@ -7,17 +7,32 @@ import * as echarts from 'echarts'
 import { useLogStore } from '../store/log'
 const store = useLogStore(); const chart = ref<HTMLDivElement>(); let inst: echarts.ECharts|null=null
 function update() {
-  if (!inst||!store.result) return
+  if (!inst) return
+  if (!store.result) { inst.clear(); return }
   const ws = store.result.windows; const levels = ['INFO','WARN','ERROR','DEBUG']
+  // Normalize level casing: apache/custom emit info/warn/error/notice variants.
+  const norm = (lv: string) => {
+    const u = lv.toUpperCase()
+    if (u === 'WARNING') return 'WARN'
+    if (u === 'NOTICE') return 'INFO'
+    return u
+  }
   const data: [number,number,number][] = []
-  ws.forEach((w,i) => { levels.forEach((lv,j) => { data.push([i,j,w.levels[lv]||0]) }) })
+  ws.forEach((w,i) => {
+    const counts: Record<string, number> = { INFO:0, WARN:0, ERROR:0, DEBUG:0 }
+    for (const [lv, c] of Object.entries(w.levels)) {
+      const k = norm(lv)
+      if (k in counts) counts[k] += c
+    }
+    levels.forEach((lv,j) => { data.push([i,j,counts[lv]]) })
+  })
   inst.setOption({
     backgroundColor:'transparent',grid:{left:60,right:15,top:5,bottom:25},
     xAxis:{type:'category',data:ws.map((_,i)=>'W'+i),axisLabel:{color:'#94a3b8',fontSize:8}},
     yAxis:{type:'category',data:levels,axisLabel:{color:'#94a3b8',fontSize:9}},
     visualMap:{min:0,max:Math.max(...data.map(d=>d[2]),1),inRange:{color:['#1e293b','#fef08a','#ef4444']},calculable:false,show:false},
     series:[{type:'heatmap',data,label:{show:true,fontSize:8,color:'#94a3b8'}}],animation:false
-  })
+  }, true)
 }
 onMounted(()=>{if(chart.value){inst=echarts.init(chart.value);update()}})
 watch(()=>store.result,update)

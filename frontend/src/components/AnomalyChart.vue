@@ -7,17 +7,20 @@ import * as echarts from 'echarts'
 import { useLogStore } from '../store/log'
 const store = useLogStore(); const chart = ref<HTMLDivElement>(); let inst: echarts.ECharts|null=null
 function update() {
-  if (!inst||!store.result) return
+  if (!inst) return
+  if (!store.result) { inst.clear(); return }
   const anoms = store.result.anomalies
+  // notMerge: replace the whole option, otherwise old series points beyond the
+  // new x-axis length stay visible after a type switch / re-detection.
   inst.setOption({
-    backgroundColor:'transparent',grid:{left:40,right:15,top:10,bottom:25},
+    backgroundColor:'transparent',grid:{left:40,right:15,top:30,bottom:25},
     xAxis:{type:'category',data:anoms.map(a=>'W'+a.windowIndex),axisLabel:{color:'#94a3b8',fontSize:9}},
     yAxis:{type:'value',axisLabel:{color:'#94a3b8'}},
     series:[
       {type:'line',data:anoms.map(a=>a.sigmaScore),name:'3-sigma',itemStyle:{color:'#f97316'},lineStyle:{width:1.5}},
       {type:'line',data:anoms.map(a=>a.iqrScore),name:'IQR',itemStyle:{color:'#a78bfa'},lineStyle:{width:1.5}}
-    ],animation:false,legend:{right:0,textStyle:{color:'#94a3b8',fontSize:10}}
-  })
+    ],animation:false,legend:{right:0,top:0,textStyle:{color:'#94a3b8',fontSize:10}}
+  }, true)
 }
 onMounted(()=>{if(chart.value){inst=echarts.init(chart.value);update()}})
 watch(()=>store.result,update)

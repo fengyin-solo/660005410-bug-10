@@ -6,7 +6,7 @@
         <el-table-column prop="id" label="#" width="50"/>
         <el-table-column prop="timestamp" label="时间" width="150"/>
         <el-table-column prop="level" label="级别" width="70">
-          <template #default="{row}"><el-tag size="small" :type="row.level==='ERROR'||row.level==='error'?'danger':row.level==='WARN'||row.level==='warn'?'warning':'info'">{{ row.level }}</el-tag></template>
+          <template #default="{row}"><el-tag size="small" :type="['ERROR','error'].includes(row.level)?'danger':['WARN','warn','WARNING','warning','notice'].includes(row.level)?'warning':'info'">{{ row.level }}</el-tag></template>
         </el-table-column>
         <el-table-column prop="source" label="来源" width="120"/>
         <el-table-column prop="message" label="消息" show-overflow-tooltip/>

@@ -3,4 +3,14 @@ export interface TimeWindow { start: number; end: number; count: number; levels:
 export interface AnomalyScore { windowIndex: number; sigmaScore: number; iqrScore: number; isAnomaly: boolean; timestamp: string }
 export interface AlertRule { id: number; name: string; type: string; threshold: number; enabled: boolean }
 export interface Alert { id: number; ruleName: string; severity: string; message: string; timestamp: string }
-export interface AnalysisResult { logs: LogEntry[]; windows: TimeWindow[]; anomalies: AnomalyScore[]; alerts: Alert[]; totalLogs: number }
+export interface AnalysisResult {
+  snapshotId: string
+  logType: string
+  query: string
+  rules: Array<Omit<AlertRule, 'enabled'>>
+  logs: LogEntry[]
+  windows: TimeWindow[]
+  anomalies: AnomalyScore[]
+  alerts: Alert[]
+  totalLogs: number
+}
